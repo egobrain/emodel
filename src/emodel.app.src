@@ -1,0 +1,12 @@
+{application, emodel,
+ [
+  {description, "Declarative data transformation and validation"},
+  {vsn, git},
+  {registered, []},
+  {applications,
+   [
+    kernel,
+    stdlib
+   ]},
+  {env, []}
+ ]}.
