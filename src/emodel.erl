@@ -288,4 +288,47 @@ default_test_() ->
           ]))
     ].
 
+compile_test() ->
+    Data = #{
+        <<"user">> => #{
+            <<"login">> => <<"ost">>,
+            <<"password">> => <<"123456">>
+        },
+        <<"notifyAt">> => <<"2015-02-21 00:00:12,2015-12-31 23:59:59">>,
+        <<"message">> => <<"Hello!!!">>
+    },
+    CheckUserPassword =
+        fun(Password, #{login := Login}) ->
+            case {Login, Password} of
+                {<<"ost">>, <<"123456">>} -> ok;
+                _ -> {error, <<"bad password">>}
+            end;
+           (_, _) -> ok
+        end,
+
+    UserC = emodel:compile([
+        {<<"login">>, required, string, login, [non_empty]},
+        {<<"password">>, required, string, password, [CheckUserPassword]}
+    ], map),
+    DataModel = [
+        {<<"user">>, required,
+         fun(D, Model) ->
+             case emodel:from_map(D, #{}, UserC) of
+                 {ok, _} ->
+                     {ok, Model#{session => <<"sid">>}};
+                 {error, _Reason} = Err -> Err
+             end
+         end},
+        {<<"notifyAt">>, required, {strlist, datetime}, notifyAt, []},
+        {<<"message">>, required, string, message, [non_empty]}
+    ],
+    ?assertEqual(
+        {ok, #{message => <<"Hello!!!">>,
+               notifyAt => [
+                {{2015,2,21},{0,0,12}},
+                {{2015,12,31},{23,59,59}}
+               ],
+               session => <<"sid">>}},
+        emodel:from_map(Data, #{}, DataModel)).
+
 -endif.

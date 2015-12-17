@@ -9,7 +9,7 @@
          '>='/1,
          '<'/1,
          '=<'/1,
-         non_empty/1,
+         non_empty/2,
          in/1,
          each/2
         ]).
@@ -34,7 +34,7 @@ get_validator({each, Vs}, Opts) ->
     ?MODULE:each(Vs, Opts);
 get_validator({Fun, A}, _Opts) ->
     ?MODULE:Fun(A);
-get_validator(non_empty, _Opts) -> fun non_empty/1;
+get_validator(non_empty, _Opts) -> fun non_empty/2;
 get_validator(Fun, _Opts) when is_function(Fun, 1) ->
     fun(Data, _Model) -> Fun(Data) end;
 get_validator(Fun, _Opts) when is_function(Fun, 2) ->
@@ -48,7 +48,7 @@ get_top_validator(Type, #{validators := ValidatorsF}=Opts) ->
 %% =============================================================================
 
 '>'(Expected) ->
-    fun(Value) ->
+    fun(Value, _) ->
         case Value > Expected of
             true -> ok;
             false ->
@@ -57,7 +57,7 @@ get_top_validator(Type, #{validators := ValidatorsF}=Opts) ->
     end.
 
 '>='(Expected) ->
-    fun(Value) ->
+    fun(Value, _) ->
         case Value >= Expected of
             true -> ok;
             false ->
@@ -66,7 +66,7 @@ get_top_validator(Type, #{validators := ValidatorsF}=Opts) ->
     end.
 
 '<'(Expected) ->
-    fun(Value) ->
+    fun(Value, _) ->
         case Value < Expected of
             true -> ok;
             false ->
@@ -75,7 +75,7 @@ get_top_validator(Type, #{validators := ValidatorsF}=Opts) ->
     end.
 
 '=<'(Expected) ->
-    fun(Value) ->
+    fun(Value, _) ->
         case Value =< Expected of
             true -> ok;
             false ->
@@ -83,11 +83,11 @@ get_top_validator(Type, #{validators := ValidatorsF}=Opts) ->
         end
     end.
 
-non_empty(<<>>) -> {error, <<"is empty">>};
-non_empty(_) -> ok.
+non_empty(<<>>, _) -> {error, <<"is empty">>};
+non_empty(_, _) -> ok.
 
 in(List) ->
-    fun(Value) ->
+    fun(Value, _) ->
         case lists:member(Value, List) of
             true -> ok;
             false -> {error, unknown}
