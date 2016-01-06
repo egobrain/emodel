@@ -1,7 +1,7 @@
 EModel
 ======
 
-Emodel is a declarative data conversion and validation library for Erlang.
+Elrang data transformation/validation library.
 
 Example
 ===
@@ -191,7 +191,7 @@ You can define your custom converter or validator right in code
 ].
 ```
 
-or define easely reusable type via options
+or define easily reusable type via options
 
 ```erlang
 month_short_name(<<"Jan">>) -> {ok, 1};
@@ -237,7 +237,7 @@ For example when you want to parse list of objects it's better to write.
 
 ```erlang
 
-1> Compiled = emodel:compile([
+1> CompiledModel = emodel:compile([
     {<<"login">>, required, string, login, []},
     {<<"password">>, required, string, password, []},
     ...
