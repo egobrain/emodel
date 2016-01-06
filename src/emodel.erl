@@ -26,14 +26,14 @@
 
 -type pre_model() ::
           [{
-               Name :: binary(),
+               Name :: any(),
                required(M),
                Type :: emodel_converters:converter(A :: any(), B, Reason) | any(),
                Position :: position(),
                Validators :: [emodel_validators:validator(B, Model, Reason :: any()) | any()]
            } |
            {
-               Name :: binary(),
+               Name :: any(),
                required(M),
                Type :: emodel_converters:converter(A :: any(), B, Reason) | any(),
                Position :: position(),
@@ -41,7 +41,7 @@
                fun((Model) -> {ok, B} | {error, Reason}) | B
            } |
            {
-               Name :: binary(),
+               Name :: any(),
                required(M),
                Setter :: fun((any(), Model) -> {ok, Model} | {error, Reason :: any()})
            }].
