@@ -22,20 +22,8 @@
 -type position() :: non_neg_integer() | %% For tuple models
                     term(). %% form maps models
 
--type default(A, M, R) :: fun((M) -> {ok, A} | {error, R}).
-
 -type model_type() :: tuple | map.
 
--type field() ::
-          {
-              Name :: binary(),
-              req_fun(Model),
-              Getter :: fun((Model) -> Value),
-              Setter :: fun((Value, Model) -> {ok, Model} | {error, Reason :: any()}),
-              Default :: fun((req_opts(), Model) -> {ok, Model} | {error, Reason :: any()})
-          }.
-
--opaque model() :: {'$compiled', [field()]}.
 -type pre_model() ::
           [{
                Name :: binary(),
@@ -50,13 +38,21 @@
                Type :: emodel_converters:converter(A :: any(), B, Reason) | any(),
                Position :: position(),
                Validators :: [emodel_validators:validator(B, Model, Reason :: any()) | any()],
-               default(B, M, Reason :: any()) | B
+               fun((Model) -> {ok, B} | {error, Reason}) | B
            } |
            {
                Name :: binary(),
                required(M),
                Setter :: fun((any(), Model) -> {ok, Model} | {error, Reason :: any()})
            }].
+
+-opaque model() :: {'$compiled', [{
+              Name :: binary(),
+              req_fun(Model),
+              Getter :: fun((Model) -> Value),
+              Setter :: fun((Value, Model) -> {ok, Model} | {error, Reason :: any()}),
+              Default :: fun((required | optional, Model) -> {ok, Model} | {error, Reason :: any()})
+           }]}.
 
 -export_type([model/0, pre_model/0]).
 
@@ -73,24 +69,25 @@
 
 -spec compile(pre_model(), model_type()) -> model().
 compile(PreModel, ModelType) ->
-    compile(PreModel, ModelType, ?DEFAULT_OPTS).
+    compile(PreModel, ModelType, #{}).
 
 -spec from_proplist(proplists:proplist(), Model, model() | pre_model()) ->
           {ok, Model} | {error, Reason :: any()} when Model :: tuple() | map().
 from_proplist(Proplist, Model, ModelDescription) ->
-    from_proplist(Proplist, Model, ModelDescription, ?DEFAULT_OPTS).
+    from_proplist(Proplist, Model, ModelDescription, #{}).
 
 -spec from_map(any(), Model, model() | pre_model()) ->
           {ok, Model} | {error, Reason :: any()} when Model :: tuple() | map().
 from_map(Map, Model, ModelDescription0) ->
-    from_map(Map, Model, ModelDescription0, ?DEFAULT_OPTS).
+    from_map(Map, Model, ModelDescription0, #{}).
 
 %% =============================================================================
 %% API
 %% =============================================================================
 
 -spec compile(pre_model(), model_type(), opts()) -> model().
-compile(PreModel, ModelType, Opts) ->
+compile(PreModel, ModelType, Opts0) ->
+    Opts = maps:merge(?DEFAULT_OPTS, Opts0),
     CompileRow = fun(R) -> compile_row(R, ModelType, Opts) end,
     {'$compiled', lists:map(CompileRow, PreModel)}.
 
@@ -222,119 +219,3 @@ set_value_fun(Setter, Converter, Validators) ->
 
 -spec default_value(V) -> fun((any()) -> {ok, V}).
 default_value(Value) -> fun(_Model) -> {ok, Value} end.
-
--ifdef(TEST).
--include_lib("eunit/include/eunit.hrl").
-
--record(r, {i,s,d}).
-
-simple_test_() ->
-    RExpected = #r{i=1, s = <<"a">>, d = {2015,12,01}},
-    MExpected = #{i => 1, s => <<"a">>, d => {2015,12,01}},
-    Data = #{
-        <<"int">> => 1,
-        <<"str">> => <<"a">>,
-        <<"date">> => <<"2015-12-01">>
-    },
-    [
-     ?_assertEqual(
-          {ok, RExpected},
-          emodel:from_map(Data, #r{}, [
-              {<<"int">>,  required, integer, #r.i, []},
-              {<<"str">>,  required, string, #r.s, []},
-              {<<"date">>, required, date, #r.d, []}
-          ])),
-     ?_assertEqual(
-          {ok, MExpected},
-          emodel:from_map(Data, #{}, [
-              {<<"int">>,  required, integer, i, []},
-              {<<"str">>,  required, string, s, []},
-              {<<"date">>, required, date, d, []}
-          ]))
-    ].
-
-default_test_() ->
-    [
-     ?_assertEqual(
-          {ok, #{ d => 1 }},
-          emodel:from_map(#{}, #{}, [
-              {<<"d">>, required, integer, d, [], emodel:default_value(1)}
-          ])),
-     ?_assertEqual(
-          {error, [{<<"d">>, required}]},
-          emodel:from_map(#{}, #{}, [
-              {<<"d">>, required, integer, d, [], emodel:default_value(null)}
-          ])),
-     ?_assertEqual(
-          {error, [{<<"d">>, required}]},
-          emodel:from_map(#{}, #{}, [
-              {<<"d">>, required, integer, d, [], emodel:default_value(undefined)}
-          ])),
-     %% Optional
-     ?_assertEqual(
-          {ok, #{ d => 1 }},
-          emodel:from_map(#{}, #{}, [
-              {<<"d">>, optional, integer, d, [], emodel:default_value(1)}
-          ])),
-     ?_assertEqual(
-          {ok, #{ d => null }},
-          emodel:from_map(#{}, #{}, [
-              {<<"d">>, optional, integer, d, [], emodel:default_value(null)}
-          ])),
-     ?_assertEqual(
-          {ok, #{}},
-          emodel:from_map(#{}, #{}, [
-              {<<"d">>, optional, integer, d, [], emodel:default_value(undefined)}
-          ])),
-     ?_assertEqual(
-          {ok, #{d => 2}},
-          emodel:from_map(#{}, #{}, [
-              {<<"d">>, required, fun(_) -> error(badarg) end, d,
-               [fun(_) -> error(badarg) end], emodel:default_value(2)}
-          ]))
-    ].
-
-compile_test() ->
-    Data = #{
-        <<"user">> => #{
-            <<"login">> => <<"ost">>,
-            <<"password">> => <<"123456">>
-        },
-        <<"notifyAt">> => <<"2015-02-21 00:00:12,2015-12-31 23:59:59">>,
-        <<"message">> => <<"Hello!!!">>
-    },
-    CheckUserPassword =
-        fun(Password, #{login := Login}) ->
-            case {Login, Password} of
-                {<<"ost">>, <<"123456">>} -> ok;
-                _ -> {error, <<"bad password">>}
-            end;
-           (_, _) -> ok
-        end,
-
-    UserC = emodel:compile([
-        {<<"login">>, required, string, login, [non_empty]},
-        {<<"password">>, required, string, password, [CheckUserPassword]}
-    ], map),
-    DataModel = [
-        {<<"user">>, required,
-         fun(D, Model) ->
-             case emodel:from_map(D, #{}, UserC) of
-                 {ok, _} ->
-                     {ok, Model#{session => <<"sid">>}};
-                 {error, _Reason} = Err -> Err
-             end
-         end},
-        {<<"notifyAt">>, required, {strlist, datetime}, notifyAt, []},
-        {<<"message">>, required, string, message, [non_empty]}
-    ],
-    ?assertEqual(
-        {ok, #{message => <<"Hello!!!">>,
-               notifyAt => [
-                {{2015,2,21},{0,0,12}},
-                {{2015,12,31},{23,59,59}}
-               ],
-               session => <<"sid">>}},
-        emodel:from_map(Data, #{}, DataModel)).
-
--endif.
