@@ -12,9 +12,6 @@
          default_value/1
         ]).
 
-%% -type opts() :: #{ converters => fun((any(), opts()) -> converter() }.
-%% -type opts() :: #{ validators => fun((any(), opts()) -> validator() }.
-
 -type opts() :: #{}.
 
 -type req_opts() :: required | optional | ignore.
@@ -26,6 +23,7 @@
                     term(). %% form maps models
 
 -type default(A, M, R) :: fun((M) -> {ok, A} | {error, R}).
+
 -type model_type() :: tuple | map.
 
 -type field() ::
@@ -34,7 +32,7 @@
               req_fun(Model),
               Getter :: fun((Model) -> Value),
               Setter :: fun((Value, Model) -> {ok, Model} | {error, Reason :: any()}),
-              default(Value, Model, Reason :: any())
+              Default :: fun((req_opts(), Model) -> {ok, Model} | {error, Reason :: any()})
           }.
 
 -opaque model() :: {'$compiled', [field()]}.
@@ -42,14 +40,14 @@
           [{
                Name :: binary(),
                required(M),
-               Type :: emodel_converters:known_types(A :: any(), B, Reason) | any(),
+               Type :: emodel_converters:converter(A :: any(), B, Reason) | any(),
                Position :: position(),
                Validators :: [emodel_validators:validator(B, Model, Reason :: any()) | any()]
            } |
            {
                Name :: binary(),
                required(M),
-               Type :: emodel_converters:known_types(A :: any(), B, Reason) | any(),
+               Type :: emodel_converters:converter(A :: any(), B, Reason) | any(),
                Position :: position(),
                Validators :: [emodel_validators:validator(B, Model, Reason :: any()) | any()],
                default(B, M, Reason :: any()) | B
@@ -111,14 +109,24 @@ compile_row({Name, Required, Type, Position, Validators, Default}, ModelType,
         #{converters := ConvertersF, validators := ValidatorsF}=Opts) ->
     Converter = ConvertersF(Type, Opts),
     ValidatorsC = [ValidatorsF(V, Opts) || V <- Validators],
-    DefaultC = compile_default(Default),
     Getter = default_getter(ModelType, Position),
-    Setter = default_setter(ModelType, Converter, Position, ValidatorsC),
-    {Name, req_fun(Required), Getter, Setter, DefaultC}.
+    Setter = default_setter(ModelType, Position),
+    SetValueFun = set_value_fun(Setter, Converter, ValidatorsC),
+    SetDefaultFun = set_default_fun(Setter, Default),
+    {Name, req_fun(Required), Getter, SetValueFun, SetDefaultFun}.
 
-compile_default(undefined) -> undefined;
-compile_default(Fun) when is_function(Fun,1) -> Fun;
-compile_default(Value) -> default_value(Value).
+set_default_fun(_Setter, undefined) -> undefined;
+set_default_fun(Setter, Fun) when is_function(Fun,1) ->
+    fun(Required, M) ->
+        case Fun(M) of
+            {ok, V} when ?IS_UNDEFINED(V) andalso Required =:= required ->
+                {error, required};
+            {ok, V} -> {ok, Setter(V, M)};
+            {error, _Reason} = Err -> Err
+        end
+    end;
+set_default_fun(Setter, Value) ->
+    set_default_fun(Setter, default_value(Value)).
 
 -spec from_proplist(proplists:proplist(), Model, model() | pre_model(), opts()) ->
           {ok, Model} | {error, Reason :: any()} when Model :: tuple() | map().
@@ -146,7 +154,7 @@ from_map(Map, Model, ModelDescription0, Opts) when is_map(Map) ->
                         error ->
                             case Getter(M) of
                                 undefined ->
-                                    try_default(Required, Default, Setter, Name, M);
+                                    try_default(Required, Default, Name, M);
                                 _ -> {ok, M}
                             end
                     end
@@ -159,21 +167,14 @@ from_map(_, _, _, _) ->
 %%% Internal functions
 %% =============================================================================
 
-try_default(required, undefined, _Setter, Name, _Model) ->
+try_default(required, undefined, Name, _Model) ->
     {error, {Name, required}};
-try_default(_, undefined, _Setter, _Name, Model) ->
+try_default(_, undefined, _Name, Model) ->
     {ok, Model};
-try_default(Required, Default, Setter, Name, Model) ->
-    case Default(Model) of
-        {ok, Value} when ?IS_UNDEFINED(Value) andalso Required =:= required ->
-            {error, {Name, required}};
-        {ok, Value} ->
-            case Setter(Value, Model) of
-                {ok, _Model} = Ok -> Ok;
-                {error, Reason} -> {error, {Name, Reason}}
-            end;
-        {error, Reason} ->
-            {error, {Name, Reason}}
+try_default(Required, Default, Name, Model) ->
+    case Default(Required, Model) of
+        {ok, _Model} = Ok -> Ok;
+        {error, Reason} -> {error, {Name, Reason}}
     end.
 
 try_compile(_Model, {'$compiled', _}=Compiled, _Opts) ->
@@ -194,22 +195,21 @@ default_getter(map, Position) ->
 default_getter(tuple, Position) ->
     fun(T) -> element(Position, T) end.
 
-default_setter(ModelType, Converter, Position, Validators) ->
-    Setter =
-        case ModelType of
-            map ->
-                fun(undefined, M) -> maps:remove(Position, M);
-                   (V, M) -> maps:put(Position, V, M)
-                end;
-            tuple -> fun(V, T) -> setelement(Position, T, V) end
-        end,
+default_setter(map, Position) ->
+    fun(undefined, M) -> maps:remove(Position, M);
+       (V, M) -> maps:put(Position, V, M)
+    end;
+default_setter(tuple, Position) ->
+    fun(V, T) -> setelement(Position, T, V) end.
+
+set_value_fun(Setter, Converter, Validators) ->
     fun(Value, Model) when ?IS_UNDEFINED(Value) ->
            {ok, Setter(Value, Model)};
-       (Data, Model) ->
-           case Converter(Data) of
-               {ok, ConvertedData} ->
-                   case emodel_validators:apply_validation_rules(Validators, Model, ConvertedData) of
-                       ok -> {ok, Setter(ConvertedData, Model)};
+       (Value, Model) ->
+           case Converter(Value) of
+               {ok, ConvertedValue} ->
+                   case emodel_validators:apply_validation_rules(Validators, Model, ConvertedValue) of
+                       ok -> {ok, Setter(ConvertedValue, Model)};
                        {error, _Reason} = Err -> Err
                    end;
                {error, _Reason} = Err -> Err
@@ -285,6 +285,12 @@ default_test_() ->
           {ok, #{}},
           emodel:from_map(#{}, #{}, [
               {<<"d">>, optional, integer, d, [], emodel:default_value(undefined)}
+          ])),
+     ?_assertEqual(
+          {ok, #{d => 2}},
+          emodel:from_map(#{}, #{}, [
+              {<<"d">>, required, fun(_) -> error(badarg) end, d,
+               [fun(_) -> error(badarg) end], emodel:default_value(2)}
           ]))
     ].
 

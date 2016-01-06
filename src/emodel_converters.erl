@@ -240,9 +240,8 @@ ulist(_Data, _Converter) ->
 
 strlist(Converter) ->
     fun(Value) -> strlist(Value, Converter) end.
-strlist(List, Converter) when is_list(List) ->
-    emodel_converters:list(List, Converter);
 strlist(Bin, Converter) when is_binary(Bin) ->
-    strlist(binary:split(Bin, <<",">>, [global]), Converter);
+    List = binary:split(Bin, <<",">>, [global]),
+    emodel_converters:list(List, Converter);
 strlist(_, _Converter) ->
     {error, <<"bad string list">>}.
