@@ -1,7 +1,7 @@
 EModel
 ======
 
-Elrang data transformation/validation library.
+Erlang data transformation/validation library.
 
 Example
 ===
