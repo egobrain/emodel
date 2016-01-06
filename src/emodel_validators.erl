@@ -10,7 +10,7 @@
          '<'/1,
          '=<'/1,
          non_empty/2,
-         in/1,
+         enum/1,
          each/2
         ]).
 
@@ -86,7 +86,7 @@ get_top_validator(Type, #{validators := ValidatorsF}=Opts) ->
 non_empty(<<>>, _) -> {error, <<"is empty">>};
 non_empty(_, _) -> ok.
 
-in(List) ->
+enum(List) ->
     fun(Value, _) ->
         case lists:member(Value, List) of
             true -> ok;
