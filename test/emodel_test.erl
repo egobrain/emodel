@@ -219,3 +219,19 @@ custom_opts_test_() ->
               {<<"a">>, required, int, a, [non_zero]}
           ], #{converters => Converters, validators => Validators}))
     ].
+
+dependent_converter_test_() ->
+    Model = [
+        {<<"a">>, required,
+         fun(A, #{b := true}) -> {ok, A};
+            (A, _) -> {error, A}
+         end, a, []}
+    ],
+    [
+     ?_assertEqual(
+          {ok, #{a => 1, b => true}},
+          emodel:from_map(#{<<"a">> => 1}, #{b => true}, Model)),
+     ?_assertEqual(
+          {error, [{<<"a">>, 1}]},
+          emodel:from_map(#{<<"a">> => 1}, #{}, Model))
+    ].

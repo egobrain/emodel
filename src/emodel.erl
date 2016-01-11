@@ -28,14 +28,14 @@
           [{
                Name :: any(),
                required(M),
-               Type :: emodel_converters:converter(A :: any(), B, Reason) | any(),
+               Type :: emodel_converters:converter(A :: any(), B, Model, Reason) | any(),
                Position :: position(),
                Validators :: [emodel_validators:validator(B, Model, Reason :: any()) | any()]
            } |
            {
                Name :: any(),
                required(M),
-               Type :: emodel_converters:converter(A :: any(), B, Reason) | any(),
+               Type :: emodel_converters:converter(A :: any(), B, Model, Reason) | any(),
                Position :: position(),
                Validators :: [emodel_validators:validator(B, Model, Reason :: any()) | any()],
                fun((Model) -> {ok, B} | {error, Reason}) | B
@@ -104,13 +104,20 @@ compile_row({Name, Required, Type, Position, Validators},
         ModelType, Opts);
 compile_row({Name, Required, Type, Position, Validators, Default}, ModelType,
         #{converters := ConvertersF, validators := ValidatorsF}=Opts) ->
-    Converter = ConvertersF(Type, Opts),
+    Converter = get_converter(ConvertersF, Type, Opts),
     ValidatorsC = [ValidatorsF(V, Opts) || V <- Validators],
     Getter = default_getter(ModelType, Position),
     Setter = default_setter(ModelType, Position),
     SetValueFun = set_value_fun(Setter, Converter, ValidatorsC),
     SetDefaultFun = set_default_fun(Setter, Default),
     {Name, req_fun(Required), Getter, SetValueFun, SetDefaultFun}.
+
+get_converter(ConvertersF, Type, Opts) ->
+    case ConvertersF(Type, Opts) of
+        F when is_function(F,2) -> F;
+        F when is_function(F,1) ->
+            fun(V, _) -> F(V) end
+    end.
 
 set_default_fun(_Setter, undefined) -> undefined;
 set_default_fun(Setter, Fun) when is_function(Fun,1) ->
@@ -203,7 +210,7 @@ set_value_fun(Setter, Converter, Validators) ->
     fun(Value, Model) when ?IS_UNDEFINED(Value) ->
            {ok, Setter(Value, Model)};
        (Value, Model) ->
-           case Converter(Value) of
+           case Converter(Value, Model) of
                {ok, ConvertedValue} ->
                    case emodel_validators:apply_validation_rules(Validators, Model, ConvertedValue) of
                        ok -> {ok, Setter(ConvertedValue, Model)};

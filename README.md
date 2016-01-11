@@ -95,9 +95,9 @@ Model description is a list of rules which will be applied from top to down.
 %% R - error reason
 
 -type rule(M) ::
-{name(), required(M), data_converter(A,B,R), position(), [validator(B,M,R)], default_value(M,B)} |
+{name(), required(M), data_converter(A,B,M,R), position(), [validator(B,M,R)], default_value(M,B)} |
 %% Default may be ommited
-{name(), required(M), data_converter(A,B,R), position(), [validator(B,M,R)]} |
+{name(), required(M), data_converter(A,B,M,R), position(), [validator(B,M,R)]} |
 %% Also for complex cases rule can be
 {name(), required(M), setter(A,M,R)}.
 
@@ -112,13 +112,14 @@ Model description is a list of rules which will be applied from top to down.
     required | %% Value is required
     ignore   . %% rule will be ignored
 
--type data_converter(A,B,R) :: converter(A,B,R) | Type :: term().
--type converter(A,B,R) :: fun((A) -> {ok,B} | {error,R}). %% declarated in emodel_converters.
+-type data_converter(A,B,M,R) :: converter(A,B,M,R) | Type :: term().
+-type converter(A,B,M,R) :: fun((A) -> {ok,B} | {error,R}), %% declarated in emodel_converters.
+                         :: fun((A,M) -> {ok,B} | {error,R}).
 
--type data_validator(B,M,R) :: 
-	Type :: term(),
-	fun((B) -> ok | {error, R}) |
-	validator(A,B,R).
+-type data_validator(B,M,R) ::
+        Type :: term(),
+        fun((B) -> ok | {error, R}) |
+        validator(A,B,R).
 -type validator(B,M,R) :: fun((B,M) -> ok | {error,R}). %% declarated in emodel_validators.
 
 -type default_valud(M,B) :: fun((M) -> {ok,B}) | B :: any().
@@ -163,12 +164,12 @@ Validators
 Custom converters and validators
 ===
 
-You can define your custom converter or validator right in code 
+You can define your custom converter or validator right in code
 
 ```erlang
 [
  {<<"type">>, required, string, type, [{enum, [<<"daily">>, <<"monthly">>]}]},
- {<<"month">>, 
+ {<<"month">>,
   fun(#{type := <<"monthly">>}) -> require; %% Custom req fun
      (_) -> ignore
   end,
@@ -181,8 +182,8 @@ You can define your custom converter or validator right in code
   [
    fun(V) -> %% Custom validator
       case V > element(2, erlang:date()) of
-	true -> ok;
-	false -> {error, <<"Must be greater than current month">>}
+        true -> ok;
+        false -> {error, <<"Must be greater than current month">>}
       end
    end
   ],
@@ -217,7 +218,7 @@ get_validator(V, Opts) -> emodel_validators:get_validator(V, Opts).
 %% In this it will be better to create your custom fun wrapper with default opts
 from_map(Data, Model, Description) ->
     emodel:from_map(Data, Model, Description, #{
-        converters => fun get_converter/2, 
+        converters => fun get_converter/2,
         validators => get_validator/2
     }).
 

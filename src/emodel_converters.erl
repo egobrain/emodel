@@ -19,10 +19,11 @@
          strlist/2
         ]).
 
--type converter(A, B, R) :: fun((A) -> {ok, B} | {error, R}).
+-type converter(A, B, M, R) :: fun((A) -> {ok, B} | {error, R}) |
+                               fun((A, M) -> {ok, B} | {error, R}).
 
 -export_type([
-              converter/3
+              converter/4
              ]).
 
 %% =============================================================================
@@ -30,6 +31,7 @@
 %% =============================================================================
 
 get_converter(Fun, _Opts) when is_function(Fun, 1) -> Fun;
+get_converter(Fun, _Opts) when is_function(Fun, 2) -> Fun;
 %% Simple converters
 get_converter(binary, _Opts) -> fun string/1;
 get_converter(string, _Opts) -> fun string/1;
