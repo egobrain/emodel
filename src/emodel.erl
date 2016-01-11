@@ -104,20 +104,16 @@ compile_row({Name, Required, Type, Position, Validators},
         ModelType, Opts);
 compile_row({Name, Required, Type, Position, Validators, Default}, ModelType,
         #{converters := ConvertersF, validators := ValidatorsF}=Opts) ->
-    Converter = get_converter(ConvertersF, Type, Opts),
-    ValidatorsC = [ValidatorsF(V, Opts) || V <- Validators],
+    Converter = lift2(ConvertersF(Type, Opts)),
+    ValidatorsC = [lift2(ValidatorsF(V, Opts)) || V <- Validators],
     Getter = default_getter(ModelType, Position),
     Setter = default_setter(ModelType, Position),
     SetValueFun = set_value_fun(Setter, Converter, ValidatorsC),
     SetDefaultFun = set_default_fun(Setter, Default),
     {Name, req_fun(Required), Getter, SetValueFun, SetDefaultFun}.
 
-get_converter(ConvertersF, Type, Opts) ->
-    case ConvertersF(Type, Opts) of
-        F when is_function(F,2) -> F;
-        F when is_function(F,1) ->
-            fun(V, _) -> F(V) end
-    end.
+lift2(F) when is_function(F, 2) -> F;
+lift2(F) when is_function(F, 1) -> fun(V, _) -> F(V) end.
 
 set_default_fun(_Setter, undefined) -> undefined;
 set_default_fun(Setter, Fun) when is_function(Fun,1) ->
