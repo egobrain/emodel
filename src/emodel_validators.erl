@@ -11,7 +11,8 @@
          '=<'/1,
          non_empty/1,
          enum/1,
-         each/2
+         each/2,
+         unique/1
         ]).
 
 -export([
@@ -36,6 +37,7 @@ get_validator({each, Vs}, Opts) ->
 get_validator({Fun, A}, _Opts) ->
     ?MODULE:Fun(A);
 get_validator(non_empty, _Opts) -> fun non_empty/1;
+get_validator(unique, _Opts) -> fun unique/1;
 get_validator(Fun, _Opts) when is_function(Fun, 1) ->
     fun(Data, _Model) -> Fun(Data) end;
 get_validator(Fun, _Opts) when is_function(Fun, 2) ->
@@ -105,6 +107,19 @@ each(Validators0, Opts) ->
                     {error, Reason} -> {error, {I, Reason}}
                 end
             end, emodel_utils:enumerate(List))
+    end.
+
+unique(List) when is_list(List) ->
+    Result = emodel_utils:error_writer_foldl(
+        fun({I, E}, S) ->
+            case sets:is_element(E, S) of
+                true -> {error, {I, <<"not unique">>}};
+                false -> {ok, sets:add_element(E, S)}
+            end
+        end, sets:new(), emodel_utils:enumerate(List)),
+    case Result of
+        {ok, _} -> ok;
+        {error, _Reasons} = Err -> Err
     end.
 
 %% =============================================================================
