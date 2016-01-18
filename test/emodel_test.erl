@@ -91,6 +91,31 @@ default_test_() ->
           emodel:from_map(#{}, #{}, [
               {<<"d">>, required, integer, d, [], emodel:default_value(undefined)}
           ])),
+     ?_assertEqual(
+          {error, [{<<"d">>, required}]},
+          emodel:from_map(#{}, #{}, [
+              {<<"d">>, required, integer, d, [], fun(Model, Setter) -> Setter(undefined, Model) end}
+          ])),
+     ?_assertEqual(
+          {ok, #{d => 1}},
+          emodel:from_map(#{}, #{}, [
+              {<<"d">>, required, integer, d, [], fun(Model, Setter) -> Setter(1, Model) end}
+          ])),
+     ?_assertEqual(
+          {ok, #{d => 1}},
+          emodel:from_map(#{}, #{}, [
+              {<<"d">>, required, integer, d, [], fun(_Model) -> {ok, 1} end}
+          ])),
+     ?_assertEqual(
+          {ok, #{a => 3}},
+          emodel:from_map(#{}, #{}, [
+              {<<"d">>, required, integer, d, [], fun(Model, _Setter) -> {ok, Model#{a => 3}} end}
+          ])),
+     ?_assertEqual(
+          {error, [{<<"d">>, bad_default}]},
+          emodel:from_map(#{}, #{}, [
+              {<<"d">>, required, integer, d, [], fun(_Model, _Setter) -> {error, bad_default} end}
+          ])),
      %% Optional
      ?_assertEqual(
           {ok, #{}},
@@ -108,9 +133,19 @@ default_test_() ->
               {<<"d">>, optional, integer, d, [], emodel:default_value(null)}
           ])),
      ?_assertEqual(
+          {ok, #{ d => null }},
+          emodel:from_map(#{}, #{}, [
+              {<<"d">>, optional, integer, d, [], fun(Model, Setter) -> Setter(null, Model) end}
+          ])),
+     ?_assertEqual(
           {ok, #{}},
           emodel:from_map(#{}, #{}, [
               {<<"d">>, optional, integer, d, [], emodel:default_value(undefined)}
+          ])),
+     ?_assertEqual(
+          {ok, #{}},
+          emodel:from_map(#{}, #{}, [
+              {<<"d">>, optional, integer, d, [], fun(Model, Setter) -> Setter(undefined, Model) end}
           ])),
      ?_assertEqual(
           {ok, #{d => 2}},

@@ -95,7 +95,7 @@ Model description is a list of rules which will be applied from top to down.
 %% R - error reason
 
 -type rule(M) ::
-{name(), required(M), data_converter(A,B,M,R), position(), [validator(B,M,R)], default_value(M,B)} |
+{name(), required(M), data_converter(A,B,M,R), position(), [validator(B,M,R)], default_value(M,B,R)} |
 %% Default may be ommited
 {name(), required(M), data_converter(A,B,M,R), position(), [validator(B,M,R)]} |
 %% Also for complex cases rule can be
@@ -120,10 +120,15 @@ Model description is a list of rules which will be applied from top to down.
         Type :: term(),
         fun((B) -> ok | {error, R}) |
         validator(A,B,R).
--type validator(B,M,R) :: fun((B) -> ok | {error,R}) | %% declarated in emodel_validators.
-                          fun((B,M) -> ok | {error,R}).
+-type validator(B,M,R) ::
+        fun((B) -> ok | {error,R}) | %% declarated in emodel_validators.
+        fun((B,M) -> ok | {error,R}).
 
--type default_valud(M,B) :: fun((M) -> {ok,B}) | B :: any().
+-type default_value(M,B,R) ::
+        B :: any() |
+        fun((M) -> {ok,B} | {error,R}) |
+        fun((M, Setter) -> {ok, M} | {error, R}) where
+            Setter :: fun((B,M) -> {ok,M}|{error,R}).
 
 -type setter(A,M,R) -> fun((A,M) -> {ok,M} | {error,R}).
 ```

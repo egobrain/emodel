@@ -16,6 +16,10 @@
 
 -type req_opts() :: required | optional | ignore.
 -type req_fun(M) :: fun((M) -> req_opts()).
+-type default(B,M,R) ::
+          B |
+          fun((M) -> {ok, B} | {error, R}) |
+          fun((M, S :: fun((B,M) -> {ok, M} | {error, R})) -> {ok, M} | {error, R}).
 
 -type required(M) :: req_opts() | req_fun(M).
 
@@ -38,7 +42,7 @@
                Type :: emodel_converters:converter(A :: any(), B, Model, Reason) | any(),
                Position :: position(),
                Validators :: [emodel_validators:validator(B, Model, Reason :: any()) | any()],
-               fun((Model) -> {ok, B} | {error, Reason}) | B
+               default(B, Model, Reason :: any())
            } |
            {
                Name :: any(),
@@ -117,13 +121,24 @@ lift2(F) when is_function(F, 1) -> fun(V, _) -> F(V) end.
 
 set_default_fun(_Setter, undefined) -> undefined;
 set_default_fun(Setter, Fun) when is_function(Fun,1) ->
-    fun(Required, M) ->
-        case Fun(M) of
-            {ok, V} when ?IS_UNDEFINED(V) andalso Required =:= required ->
-                {error, required};
-            {ok, V} -> {ok, Setter(V, M)};
-            {error, _Reason} = Err -> Err
-        end
+    set_default_fun(Setter,
+        fun(Model, ReqSetter) ->
+            case Fun(Model) of
+                {ok, V} -> ReqSetter(V, Model);
+                {error, _R} = Err -> Err
+            end
+        end);
+set_default_fun(Setter, Fun) when is_function(Fun,2) ->
+    fun(Required, Model) ->
+        ReqSetter =
+            case Required of
+                required ->
+                    fun(V, _M) when ?IS_UNDEFINED(V) -> {error, required};
+                       (V, M) -> {ok, Setter(V, M)}
+                    end;
+                _ -> fun(V, M) -> {ok, Setter(V, M)} end
+            end,
+        Fun(Model, ReqSetter)
     end;
 set_default_fun(Setter, Value) ->
     set_default_fun(Setter, default_value(Value)).
@@ -221,4 +236,4 @@ set_value_fun(Setter, Converter, Validators) ->
 %% =============================================================================
 
 -spec default_value(V) -> fun((any()) -> {ok, V}).
-default_value(Value) -> fun(_Model) -> {ok, Value} end.
+default_value(Value) -> fun(Model, Setter) -> Setter(Value, Model) end.
