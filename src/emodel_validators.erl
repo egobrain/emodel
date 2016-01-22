@@ -35,11 +35,11 @@
 get_validator({each, Vs}, Opts) ->
     ?MODULE:each(Vs, Opts);
 get_validator({Fun, A}, _Opts) ->
-    ?MODULE:Fun(A);
-get_validator(non_empty, _Opts) -> fun non_empty/1;
-get_validator(unique, _Opts) -> fun unique/1;
+    emodel_utils:lift2(?MODULE:Fun(A));
+get_validator(non_empty, _Opts) -> emodel_utils:lift2(fun non_empty/1);
+get_validator(unique, _Opts) -> emodel_utils:lift2(fun unique/1);
 get_validator(Fun, _Opts) when is_function(Fun, 1) ->
-    fun(Data, _Model) -> Fun(Data) end;
+    emodel_utils:lift2(Fun);
 get_validator(Fun, _Opts) when is_function(Fun, 2) ->
     Fun.
 
@@ -51,7 +51,7 @@ get_top_validator(Type, #{validators := ValidatorsF}=Opts) ->
 %% =============================================================================
 
 '>'(Expected) ->
-    fun(Value) ->
+    fun(Value, _) ->
         case Value > Expected of
             true -> ok;
             false ->

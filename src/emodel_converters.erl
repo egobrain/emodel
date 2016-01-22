@@ -14,9 +14,9 @@
          time/1,
          datetime/1,
          string/1,
-         list/2,
-         ulist/2,
-         strlist/2
+         list/2, list/3,
+         ulist/2, ulist/3,
+         strlist/2, strlist/3
         ]).
 
 -type converter(A, B, M, R) :: fun((A) -> {ok, B} | {error, R}) |
@@ -30,17 +30,18 @@
 %% Converters
 %% =============================================================================
 
-get_converter(Fun, _Opts) when is_function(Fun, 1) -> Fun;
+get_converter(Fun, _Opts) when is_function(Fun, 1) ->
+    fun(V, _) -> Fun(V) end;
 get_converter(Fun, _Opts) when is_function(Fun, 2) -> Fun;
 %% Simple converters
-get_converter(binary, _Opts) -> fun string/1;
-get_converter(string, _Opts) -> fun string/1;
-get_converter(boolean, _Opts) -> fun boolean/1;
-get_converter(datetime, _Opts) -> fun datetime/1;
-get_converter(date, _Opts) -> fun date/1;
-get_converter(integer, _Opts) -> fun integer/1;
-get_converter(float, _Opts) -> fun float/1;
-get_converter(time, _Opts) -> fun time/1;
+get_converter(binary, _Opts) -> emodel_utils:lift2(fun string/1);
+get_converter(string, _Opts) -> emodel_utils:lift2(fun string/1);
+get_converter(boolean, _Opts) -> emodel_utils:lift2(fun boolean/1);
+get_converter(datetime, _Opts) -> emodel_utils:lift2(fun datetime/1);
+get_converter(date, _Opts) -> emodel_utils:lift2(fun date/1);
+get_converter(integer, _Opts) -> emodel_utils:lift2(fun integer/1);
+get_converter(float, _Opts) -> emodel_utils:lift2(fun float/1);
+get_converter(time, _Opts) -> emodel_utils:lift2(fun time/1);
 %% Complex converters
 get_converter({list, Type}, Opts) -> list(get_top_converter(Type, Opts));
 get_converter({ulist, Type}, Opts) -> ulist(get_top_converter(Type, Opts));
@@ -205,30 +206,32 @@ float(Bin) when is_binary(Bin) ->
 %% =============================================================================
 
 list(Converter) ->
-    fun(Data) -> list(Data, Converter) end.
+    fun(Data, Model) -> list(Data, Model, Converter) end.
 
-list(List, Converter) when is_list(List) ->
+list(List, Converter) -> list(List, undefined, Converter).
+list(List, Model, Converter) when is_list(List) ->
     emodel_utils:error_writer_map(
         fun({I, E}) ->
-            case Converter(E) of
+            case Converter(E, Model) of
                 {ok, _V} = Ok -> Ok;
                 {error, Reason} -> {error, {I, Reason}}
             end
         end, emodel_utils:enumerate(List));
-list(_Data, _Converter) ->
+list(_Data, _Model, _Converter) ->
     {error, <<"bad array">>}.
 
 ulist(Converter) ->
-    fun(List) -> ulist(List, Converter) end.
+    fun(List, Model) -> ulist(List, Model, Converter) end.
 
-ulist(List, Converter) when is_list(List) ->
+ulist(List, Converter) -> ulist(List, undefined, Converter).
+ulist(List, Model, Converter) when is_list(List) ->
     Result =
         emodel_utils:error_writer_mapfoldl(
             fun({I, E}, S) ->
                 case sets:is_element(E, S) of
                     true -> {error, {I, <<"not unique">>}};
                     false ->
-                        case Converter(E) of
+                        case Converter(E, Model) of
                             {ok, V} -> {ok, V, sets:add_element(E, S)};
                             {error, Reason} -> {error, {I, Reason}}
                         end
@@ -238,13 +241,15 @@ ulist(List, Converter) when is_list(List) ->
         {ok, UList, _} -> {ok, lists:reverse(UList)};
         {error, _Reasons} = Err -> Err
     end;
-ulist(_Data, _Converter) ->
+ulist(_Data, _Model, _Converter) ->
     {error, <<"bad array">>}.
 
 strlist(Converter) ->
-    fun(Value) -> strlist(Value, Converter) end.
-strlist(Bin, Converter) when is_binary(Bin) ->
+    fun(Value, Model) -> strlist(Value, Model, Converter) end.
+
+strlist(List, Converter) -> strlist(List, undefined, Converter).
+strlist(Bin, Model, Converter) when is_binary(Bin) ->
     List = binary:split(Bin, <<",">>, [global]),
-    emodel_converters:list(List, Converter);
-strlist(_, _Converter) ->
+    emodel_converters:list(List, Model, Converter);
+strlist(_, _Model, _Converter) ->
     {error, <<"bad string list">>}.

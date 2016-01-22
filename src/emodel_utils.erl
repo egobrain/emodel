@@ -8,7 +8,8 @@
         ]).
 
 -export([
-         enumerate/1
+         enumerate/1,
+         lift2/1
         ]).
 
 %% =============================================================================
@@ -104,3 +105,6 @@ error_foldl(Fun, InitState, Opts) ->
 enumerate(List) -> enumerate_(List, 1).
 enumerate_([], _I) -> [];
 enumerate_([H|T], I) -> [{I, H}|enumerate_(T, I+1)].
+
+lift2(F) when is_function(F, 2) -> F;
+lift2(F) when is_function(F, 1) -> fun(V, _) -> F(V) end.
