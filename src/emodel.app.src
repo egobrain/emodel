@@ -1,7 +1,10 @@
 {application, emodel,
  [
-  {description, "Declarative data transformation and validation"},
+  {description, "Erlang data transformation/validation library"},
   {vsn, git},
+  {maintainers, ["Yakov Kozlov"]},
+  {licenses, ["MIT"]},
+  {links, [{"Github", "https://github.com/egobrain/emodel"}]},
   {registered, []},
   {applications,
    [
