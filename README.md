@@ -91,18 +91,18 @@ Model description is a list of rules which will be applied from top to down.
 ```erlang
 %% M - is a model (tuple or map)
 %% A - is a value stored by ext_key() in given data (map or proplist)
-%% B - conveted data
+%% B - converted data
 %% R - error reason
 
 -type rule(M) ::
 {name(), required(M), data_converter(A,B,M,R), position(), [validator(B,M,R)], default_value(M,B,R)} |
-%% Default may be ommited
+%% Default may be omitted
 {name(), required(M), data_converter(A,B,M,R), position(), [validator(B,M,R)]} |
 %% Also for complex cases rule can be
 {name(), required(M), setter(A,M,R)}.
 
--type name() :: any(). %% Key in given map or prolist.
--type postition() :: %% Key or postion in model
+-type name() :: any(). %% Key in given map or proplist.
+-type position() :: %% Key or position in model
     any() | %%  for map
     non_neg_integer().  %%  for tuple
 
@@ -113,7 +113,7 @@ Model description is a list of rules which will be applied from top to down.
     ignore   . %% rule will be ignored
 
 -type data_converter(A,B,M,R) :: converter(A,B,M,R) | Type :: term().
--type converter(A,B,M,R) :: fun((A) -> {ok,B} | {error,R}), %% declarated in emodel_converters.
+-type converter(A,B,M,R) :: fun((A) -> {ok,B} | {error,R}), %% declared in emodel_converters.
                          :: fun((A,M) -> {ok,B} | {error,R}).
 
 -type data_validator(B,M,R) ::
@@ -121,7 +121,7 @@ Model description is a list of rules which will be applied from top to down.
         fun((B) -> ok | {error, R}) |
         validator(A,B,R).
 -type validator(B,M,R) ::
-        fun((B) -> ok | {error,R}) | %% declarated in emodel_validators.
+        fun((B) -> ok | {error,R}) | %% declared in emodel_validators.
         fun((B,M) -> ok | {error,R}).
 
 -type default_value(M,B,R) ::
@@ -133,10 +133,10 @@ Model description is a list of rules which will be applied from top to down.
 -type setter(A,M,R) -> fun((A,M) -> {ok,M} | {error,R}).
 ```
 
-All conveter or validator ```Type``` params will be converted to
+All converter or validator ```Type``` params will be converted to
 ```converter(A,B,R)``` or ```validator(B,M,R)``` at compile call,
 using ```converters``` and ```validator``` **options** or
-default ```emodel_conveteres:get_conveter/2``` and ```emodel_validators:get_validator/2``` functions.
+default ```emodel_converters:get_converter/2``` and ```emodel_validators:get_validator/2``` functions.
 So you can declare your own simple or complex types and validators.
 
 Types
@@ -151,7 +151,7 @@ Simple:
 - datetime
 - string
 
-Compilex types are:
+Complex types are:
 - list (example, ```{list, integer}```)
 - ulist (unique list, ```{ulist, integer}```)
 - strlist (list as string like ```<<"1,2,3,4">>```)
@@ -221,11 +221,11 @@ get_converter(Type, Opts) -> emodel_converters:get_converter(Type, Opts).
 get_validator('> cur_month', _Opts) -> fun gt_than_cur_month/1;
 get_validator(V, Opts) -> emodel_validators:get_validator(V, Opts).
 
-%% In this it will be better to create your custom fun wrapper with default opts
+%% In this case it's better to define your own function with default opts
 from_map(Data, Model, Description) ->
     emodel:from_map(Data, Model, Description, #{
         converters => fun get_converter/2,
-        validators => get_validator/2
+        validators => fun get_validator/2
     }).
 
 %% Usage
@@ -238,9 +238,9 @@ from_map(Data, #{}, [
 Compile
 ===
 
-Model will be compiled automaticly each time you use it via ```from_map/_``` or ```from_proplist/_``` functions.
-If you want to use it multiple times it's event better to compile model first.
-For example when you want to parse list of objects it's better to write.
+Model will be compiled automatically each time you use it via ```from_map/_``` or ```from_proplist/_``` functions.
+If you want to use model several times, it's event better to compile model first.
+For example, when you want to parse list of objects, it's better to write 
 
 ```erlang
 
@@ -266,8 +266,8 @@ Real world example
 get_json(Req, State) ->
     {QsVals, Req2} = cowboy_req:qs_vals(Req),
     Result = emodel:from_proplist(QsVals, #{}, [
-        {<<"limit">>, optional, integer, limit, [{'>', 0}]},
-        {<<"offset">>, optional, integer, offset, [{'>=', 0}]},
+        {<<"limit">>, required, integer, limit, [{'>', 0}, {'<', 10000}], emodel:default_value(1000)},
+        {<<"offset">>, required, integer, offset, [{'>=', 0}], emodel:default_value(0)},
         {<<"fields">>, required, {strlist, binary}, fields, [
             {each, [
                 {enum, [<<"id">>, <<"name">>, <<"isArchived">>]}
