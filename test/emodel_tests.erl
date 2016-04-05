@@ -1,4 +1,4 @@
--module(emodel_test).
+-module(emodel_tests).
 
 -include_lib("eunit/include/eunit.hrl").
 
