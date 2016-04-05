@@ -14,6 +14,7 @@
          time/1,
          datetime/1,
          string/1,
+         enum/1,
          list/2, list/3,
          ulist/2, ulist/3,
          strlist/2, strlist/3
@@ -43,6 +44,7 @@ get_converter(integer, _Opts) -> emodel_utils:lift2(fun integer/1);
 get_converter(float, _Opts) -> emodel_utils:lift2(fun float/1);
 get_converter(time, _Opts) -> emodel_utils:lift2(fun time/1);
 %% Complex converters
+get_converter({enum, Data}, _Opts) -> emodel_utils:lift2(enum(Data));
 get_converter({list, Type}, Opts) -> list(get_top_converter(Type, Opts));
 get_converter({ulist, Type}, Opts) -> ulist(get_top_converter(Type, Opts));
 get_converter({strlist, Type}, Opts) -> strlist(get_top_converter(Type, Opts)).
@@ -204,6 +206,21 @@ float(Bin) when is_binary(Bin) ->
 %% =============================================================================
 %% Complex converters
 %% =============================================================================
+
+enum(Map) when is_map(Map) ->
+    fun(Key) ->
+        case maps:find(Key, Map) of
+            {ok, _V} = Ok -> Ok;
+            error -> {error, <<"unknown">>}
+        end
+    end;
+enum(List) ->
+    enum(maps:from_list([
+        {case is_atom(E) of
+            true -> atom_to_binary(E, latin1);
+            false -> E
+         end, E} || E <- List
+    ])).
 
 list(Converter) ->
     fun(Data, Model) -> list(Data, Model, Converter) end.

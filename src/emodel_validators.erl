@@ -10,7 +10,6 @@
          '<'/1,
          '=<'/1,
          non_empty/1,
-         enum/1,
          each/2,
          unique/1
         ]).
@@ -88,14 +87,6 @@ get_top_validator(Type, #{validators := ValidatorsF}=Opts) ->
 
 non_empty(<<>>) -> {error, <<"is empty">>};
 non_empty(_) -> ok.
-
-enum(List) ->
-    fun(Value) ->
-        case lists:member(Value, List) of
-            true -> ok;
-            false -> {error, unknown}
-        end
-    end.
 
 each(Validators0, Opts) ->
     Validators = [get_top_validator(V, Opts) || V <- Validators0],
