@@ -232,5 +232,5 @@ set_value_fun(Setter, Converter, Validators) ->
 %%% Utils
 %% =============================================================================
 
--spec default_value(V) -> fun((any()) -> {ok, V}).
+-spec default_value(V) -> fun((M, fun((V,M) -> {ok, M} | {error, R})) -> {ok, M} | {error, R}).
 default_value(Value) -> fun(Model, Setter) -> Setter(Value, Model) end.
