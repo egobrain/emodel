@@ -39,6 +39,7 @@ get_converter(boolean, _Opts) -> fun boolean/1;
 get_converter(datetime, _Opts) -> fun datetime/1;
 get_converter(date, _Opts) -> fun date/1;
 get_converter(integer, _Opts) -> fun integer/1;
+get_converter(float, _Opts) -> fun float/1;
 get_converter(time, _Opts) -> fun time/1;
 %% Complex converters
 get_converter({list, Type}, Opts) -> list(get_top_converter(Type, Opts));
