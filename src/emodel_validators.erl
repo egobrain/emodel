@@ -102,6 +102,7 @@ each(Validators0, Opts) ->
     fun(List, Model) ->
         emodel_utils:error_writer_foreach(
             fun({I, Data}) ->
+
                 case apply_validation_rules(Validators, Model, Data) of
                     ok -> ok;
                     {error, Reason} -> {error, {I, Reason}}
@@ -127,6 +128,11 @@ unique(List) when is_list(List) ->
 %% =============================================================================
 
 apply_validation_rules([], _Model, _Data) -> ok;
+apply_validation_rules([H|T], Model, Data) when is_function(H, 1) ->
+    case H(Data) of
+        ok -> apply_validation_rules(T, Model, Data);
+        {error, _Reason}=Err -> Err
+    end;
 apply_validation_rules([H|T], Model, Data) when is_function(H, 2) ->
     case H(Data, Model) of
         ok -> apply_validation_rules(T, Model, Data);
