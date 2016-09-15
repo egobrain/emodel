@@ -196,7 +196,7 @@ float(Bin) when is_binary(Bin) ->
     try binary_to_float(Bin) of Float -> {ok, Float}
     catch error:badarg ->
         try binary_to_integer(Bin) of Int -> {ok, Int * 1.0}
-        catch error:badarg -> {<<"error bad float">>}
+        catch error:badarg -> {error, <<"error bad float">>}
         end
     end.
 
