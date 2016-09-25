@@ -31,16 +31,14 @@
 %% Validators
 %% =============================================================================
 
-get_validator({each, Vs}, Opts) ->
-    ?MODULE:each(Vs, Opts);
-get_validator({Fun, A}, _Opts) ->
-    emodel_utils:lift2(?MODULE:Fun(A));
-get_validator(non_empty, _Opts) -> emodel_utils:lift2(fun non_empty/1);
-get_validator(unique, _Opts) -> emodel_utils:lift2(fun unique/1);
 get_validator(Fun, _Opts) when is_function(Fun, 1) ->
-    emodel_utils:lift2(Fun);
+    fun(V, _) -> Fun(V) end;
 get_validator(Fun, _Opts) when is_function(Fun, 2) ->
-    Fun.
+    Fun;
+get_validator({each, Vs}, Opts) -> ?MODULE:each(Vs, Opts);
+get_validator(non_empty, Opts) -> get_validator(fun non_empty/1, Opts);
+get_validator(unique, Opts) -> get_validator(fun unique/1, Opts);
+get_validator({Fun, A}, Opts) -> get_validator(?MODULE:Fun(A), Opts).
 
 get_top_validator(Type, #{validators := ValidatorsF}=Opts) ->
     ValidatorsF(Type, Opts).

@@ -211,7 +211,7 @@ compile_test() ->
 
 custom_opts_test_() ->
     IntConverter =
-        fun(A) ->
+        fun(A, _) ->
             try binary_to_integer(A) of B -> {ok, B}
             catch _:_ -> {error, bad_int}
             end

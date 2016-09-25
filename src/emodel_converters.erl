@@ -35,16 +35,16 @@ get_converter(Fun, _Opts) when is_function(Fun, 1) ->
     fun(V, _) -> Fun(V) end;
 get_converter(Fun, _Opts) when is_function(Fun, 2) -> Fun;
 %% Simple converters
-get_converter(binary, _Opts) -> emodel_utils:lift2(fun string/1);
-get_converter(string, _Opts) -> emodel_utils:lift2(fun string/1);
-get_converter(boolean, _Opts) -> emodel_utils:lift2(fun boolean/1);
-get_converter(datetime, _Opts) -> emodel_utils:lift2(fun datetime/1);
-get_converter(date, _Opts) -> emodel_utils:lift2(fun date/1);
-get_converter(integer, _Opts) -> emodel_utils:lift2(fun integer/1);
-get_converter(float, _Opts) -> emodel_utils:lift2(fun float/1);
-get_converter(time, _Opts) -> emodel_utils:lift2(fun time/1);
+get_converter(binary, Opts) -> get_converter(fun string/1, Opts);
+get_converter(string, Opts) -> get_converter(fun string/1, Opts);
+get_converter(boolean, Opts) -> get_converter(fun boolean/1, Opts);
+get_converter(datetime, Opts) -> get_converter(fun datetime/1, Opts);
+get_converter(date, Opts) -> get_converter(fun date/1, Opts);
+get_converter(integer, Opts) -> get_converter(fun integer/1, Opts);
+get_converter(float, Opts) -> get_converter(fun float/1, Opts);
+get_converter(time, Opts) -> get_converter(fun time/1, Opts);
 %% Complex converters
-get_converter({enum, Data}, _Opts) -> emodel_utils:lift2(enum(Data));
+get_converter({enum, Data}, Opts) -> get_converter(enum(Data), Opts);
 get_converter({list, Type}, Opts) -> list(get_top_converter(Type, Opts));
 get_converter({ulist, Type}, Opts) -> ulist(get_top_converter(Type, Opts));
 get_converter({strlist, Type}, Opts) -> strlist(get_top_converter(Type, Opts)).

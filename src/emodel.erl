@@ -108,8 +108,8 @@ compile_row({Name, Required, Type, Position, Validators},
         ModelType, Opts);
 compile_row({Name, Required, Type, Position, Validators, Default}, ModelType,
         #{converters := ConvertersF, validators := ValidatorsF}=Opts) ->
-    Converter = emodel_utils:lift2(ConvertersF(Type, Opts)),
-    ValidatorsC = [emodel_utils:lift2(ValidatorsF(V, Opts)) || V <- Validators],
+    Converter = ConvertersF(Type, Opts),
+    ValidatorsC = [ValidatorsF(V, Opts) || V <- Validators],
     Getter = default_getter(ModelType, Position),
     Setter = default_setter(ModelType, Position),
     SetValueFun = set_value_fun(Setter, Converter, ValidatorsC),
