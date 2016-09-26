@@ -1,0 +1,18 @@
+%% -*- erlang -*-
+
+
+case os:getenv("TRAVIS") of
+  "true" ->
+    JobId   = os:getenv("TRAVIS_JOB_ID"),
+    CONFIG1 = lists:keystore(coveralls_service_job_id, 1, CONFIG, {coveralls_service_job_id, JobId}),
+    Plungins = case lists:keyfind(plugins, 1, CONFIG) of
+        {plugins, P} -> P;
+        false -> []
+    end,
+    lists:keystore(plugins, 1, CONFIG1, {plugins, [
+        {coveralls, {git, "https://github.com/markusn/coveralls-erl", {branch, "master"}}}
+        | Plungins
+    ]});
+  _ ->
+    CONFIG
+end.

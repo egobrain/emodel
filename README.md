@@ -1,3 +1,9 @@
+[![Build Status](https://travis-ci.org/egobrain/emodel.png?branch=master)](https://travis-ci.org/egobrain/emodel)
+[![Coverage Status](https://coveralls.io/repos/github/egobrain/emodel/badge.svg?branch=master)](https://coveralls.io/github/egobrain/emodel?branch=master)
+[![GitHub tag](https://img.shields.io/github/tag/egobrain/emodel.svg)](https://github.com/egobrain/emodel)
+[![Hex.pm](https://img.shields.io/hexpm/v/emodel.svg)](https://hex.pm/packages/emodel)
+
+
 EModel
 ======
 
