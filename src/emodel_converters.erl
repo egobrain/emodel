@@ -15,9 +15,9 @@
          datetime/1,
          string/1,
          enum/1,
-         list/2, list/3,
-         ulist/2, ulist/3,
-         strlist/2, strlist/3
+         list/3,
+         ulist/3,
+         strlist/3
         ]).
 
 -type converter(A, B, M, R) :: fun((A) -> {ok, B} | {error, R}) |
@@ -75,7 +75,7 @@ boolean(_) ->
 date({_, _, _} = Date) ->
     case calendar:valid_date(Date) of
         true -> {ok, Date};
-        false -> {error, <<"bad date">>}
+        false -> {error, <<"invalid date">>}
     end;
 date(Bin) when is_binary(Bin) ->
     Re = "^(?<y>\\d{4})-(?<m>\\d{1,2})-(?<d>\\d{1,2})$",
@@ -121,8 +121,8 @@ is_time_valid({Hh, Mm, Ss}) ->
 datetime(Bin) when is_binary(Bin) ->
     Re =
         "^(?<y>\\d{4})-(?<m>\\d{1,2})-(?<d>\\d{1,2})[Tt ](?<hh>\\d{1,2}):"
-        "(?<mm>\\d{1,2}):(?<ss>\\d{1,2})(?<ms>.\\d{1,}){0,1}(?<offset>["
-        "Zz]|[+-]\\d{2}:\\d{2})?$",
+        "(?<mm>\\d{1,2}):(?<ss>\\d{1,2})(?<ms>\\.\\d{1,})?"
+        "(?<offset>([Zz])|([+-]\\d{2}:\\d{2}))?$",
     case re:run(Bin, Re, [{capture,[y,m,d,hh,mm,ss,ms,offset],binary}]) of
         {match, [Y,M,D,Hh,Mm,Ss,_Ms,Offset]} ->
             TimeDiff =
@@ -176,7 +176,7 @@ integer(Float) when is_float(Float) -> %% Support float format (1.0)
     Int = trunc(Float),
     case Int == Float of
         true -> {ok, Int};
-        false -> {error, <<"integer value required">>}
+        false -> {error, <<"bad integer">>}
     end;
 integer(Bin) when is_binary(Bin) ->    %% Support number as string format
     try binary_to_integer(Bin) of
@@ -199,33 +199,34 @@ float(Bin) when is_binary(Bin) ->
     try binary_to_float(Bin) of Float -> {ok, Float}
     catch error:badarg ->
         try binary_to_integer(Bin) of Int -> {ok, Int * 1.0}
-        catch error:badarg -> {error, <<"error bad float">>}
+        catch error:badarg -> {error, <<"bad float">>}
         end
-    end.
+    end;
+float(_) ->
+    {error, <<"bad float">>}.
 
 %% =============================================================================
 %% Complex converters
 %% =============================================================================
 
 enum(Map) when is_map(Map) ->
+    Map2 = maps:fold(
+        fun (K, V, M) when is_atom(K) ->
+                maps:put(atom_to_binary(K, latin1), V, M);
+            (_, _, M) -> M
+        end, Map, Map),
     fun(Key) ->
-        case maps:find(Key, Map) of
+        case maps:find(Key, Map2) of
             {ok, _V} = Ok -> Ok;
             error -> {error, <<"unknown">>}
         end
     end;
-enum(List) ->
-    enum(maps:from_list([
-        {case is_atom(E) of
-            true -> atom_to_binary(E, latin1);
-            false -> E
-         end, E} || E <- List
-    ])).
+enum(List) when is_list(List) ->
+    enum(maps:from_list([{E, E} || E <- List])).
 
 list(Converter) ->
     fun(Data, Model) -> list(Data, Model, Converter) end.
 
-list(List, Converter) -> list(List, undefined, Converter).
 list(List, Model, Converter) when is_list(List) ->
     emodel_utils:error_writer_map(
         fun({I, E}) ->
@@ -240,7 +241,6 @@ list(_Data, _Model, _Converter) ->
 ulist(Converter) ->
     fun(List, Model) -> ulist(List, Model, Converter) end.
 
-ulist(List, Converter) -> ulist(List, undefined, Converter).
 ulist(List, Model, Converter) when is_list(List) ->
     Result =
         emodel_utils:error_writer_mapfoldl(
@@ -255,8 +255,8 @@ ulist(List, Model, Converter) when is_list(List) ->
                 end
             end, sets:new(), emodel_utils:enumerate(List)),
     case Result of
-        {ok, UList, _} -> {ok, lists:reverse(UList)};
-        {error, _Reasons} = Err -> Err
+        {ok, UList, _} -> {ok, UList};
+        {error, Reasons} -> {error, lists:reverse(Reasons)}
     end;
 ulist(_Data, _Model, _Converter) ->
     {error, <<"bad array">>}.
@@ -264,7 +264,6 @@ ulist(_Data, _Model, _Converter) ->
 strlist(Converter) ->
     fun(Value, Model) -> strlist(Value, Model, Converter) end.
 
-strlist(List, Converter) -> strlist(List, undefined, Converter).
 strlist(Bin, Model, Converter) when is_binary(Bin) ->
     List = binary:split(Bin, <<",">>, [global]),
     emodel_converters:list(List, Model, Converter);
