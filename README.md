@@ -144,9 +144,11 @@ Simple:
 - string
 
 Complex types are:
+- enum (value must exists in given list, ```{enum, [sms, email]}```
 - list (example, ```{list, integer}```)
 - ulist (unique list, ```{ulist, integer}```)
 - strlist (list as string like ```<<"1,2,3,4">>```)
+
 
 Validators
 ---
@@ -156,7 +158,6 @@ Validators
 - '<'
 - '=<'
 - non_empty (check that string is non empty)
-- enum (value must exists in given list, ```{enum, [<<"sms">>, <<"email">>]}```
 - each (check each array item with the given rules, ```{each, [non_empty]}```
 
 Custom converters and validators
@@ -166,9 +167,9 @@ You can define your custom converter or validator right in code
 
 ```erlang
 [
- {<<"type">>, required, string, type, [{enum, [<<"daily">>, <<"monthly">>]}]},
+ {<<"type">>, required, {enum, [daily, monthly]}, type, []},
  {<<"month">>,
-  fun(#{type := <<"monthly">>}) -> require; %% Custom req fun
+  fun(#{type := monthly}) -> require; %% Custom req fun
      (_) -> ignore
   end,
   fun(<<"Jan">>) -> {ok, 1}; %% Custom converter
