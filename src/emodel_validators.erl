@@ -84,6 +84,8 @@ get_top_validator(Type, #{validators := ValidatorsF}=Opts) ->
     end.
 
 non_empty(<<>>) -> {error, <<"is empty">>};
+non_empty([]) -> {error, <<"is empty">>};
+non_empty(#{}=M) when map_size(M) =:= 0 -> {error, <<"is empty">>};
 non_empty(_) -> ok.
 
 each(Validators0, Opts) ->
