@@ -104,3 +104,17 @@ error_foldl(Fun, InitState, Opts) ->
 enumerate(List) -> enumerate_(List, 1).
 enumerate_([], _I) -> [];
 enumerate_([H|T], I) -> [{I, H}|enumerate_(T, I+1)].
+
+-ifdef(TEST).
+-include_lib("eunit/include/eunit.hrl").
+
+error_foldl_test() ->
+    ?assertEqual(
+         {2, [{c,2},{c,2},{c,1}]},
+         error_foldl(
+             fun (a, _) -> ok;
+                 (b, S) -> {ok, S+1};
+                 (O, S) -> {error, {O, S}}
+             end, 0, [a,b,c,b,c,a,c])).
+
+-endif.
