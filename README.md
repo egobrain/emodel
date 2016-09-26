@@ -214,10 +214,10 @@ gt_than_cur_month(V, _Model) ->
       end
    end.
 
-get_converter(month, _Opts) -> fun month_short_name/1;
+get_converter(month, _Opts) -> emodel_converters:get_converter(fun month_short_name/1); %% custom get_converter must return fun/2, emodel_converters:get_converter will automaticly lift your functions
 get_converter(Type, Opts) -> emodel_converters:get_converter(Type, Opts).
 
-get_validator('> cur_month', _Opts) -> fun gt_than_cur_month/1;
+get_validator('> cur_month', _Opts) -> fun gt_than_cur_month/2;
 get_validator(V, Opts) -> emodel_validators:get_validator(V, Opts).
 
 %% In this case it's better to define your own function with default opts
