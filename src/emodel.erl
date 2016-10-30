@@ -12,7 +12,7 @@
          default_value/1
         ]).
 
--type opts() :: #{}.
+-type opts() :: #{atom() => any()}.
 
 -type req_opts() :: required | optional | ignore.
 -type req_fun(M) :: fun((M) -> req_opts()).
@@ -58,7 +58,7 @@
               Default :: fun((required | optional, Model) -> {ok, Model} | {error, Reason :: any()})
            }]}.
 
--export_type([model/0, pre_model/0]).
+-export_type([model/0, pre_model/0, opts/0]).
 
 -define(DEFAULT_OPTS, #{
         converters => fun emodel_converters:get_converter/2,
