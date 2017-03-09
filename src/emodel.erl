@@ -48,7 +48,9 @@
                Name :: any(),
                required(M),
                Setter :: fun((any(), Model) -> {ok, Model} | {error, Reason :: any()})
-           }].
+           } |
+           {'_', fun((any(), Model) -> Model)}
+          ].
 
 -opaque model() :: {'$compiled', [{
               Name :: binary(),
@@ -56,7 +58,7 @@
               Getter :: fun((Model) -> Value),
               Setter :: fun((Value, Model) -> {ok, Model} | {error, Reason :: any()}),
               Default :: fun((required | optional, Model) -> {ok, Model} | {error, Reason :: any()})
-           }]}.
+           } | {'_', fun((any(), Model) -> Model)}]}.
 
 -export_type([model/0, pre_model/0, opts/0]).
 
@@ -114,7 +116,9 @@ compile_row({Name, Required, Type, Position, Validators, Default}, ModelType,
     Setter = default_setter(ModelType, Position),
     SetValueFun = set_value_fun(Setter, Converter, ValidatorsC),
     SetDefaultFun = set_default_fun(Setter, Default),
-    {Name, req_fun(Required), Getter, SetValueFun, SetDefaultFun}.
+    {Name, req_fun(Required), Getter, SetValueFun, SetDefaultFun};
+compile_row({'_', Fun}=Row, _ModelType, _Opts) when is_function(Fun, 2) ->
+    Row.
 
 set_default_fun(_Setter, undefined) -> undefined;
 set_default_fun(Setter, Fun) when is_function(Fun,1) ->
@@ -149,44 +153,50 @@ from_proplist(Proplist, Model, ModelDescription, Opts) ->
           {ok, Model} | {error, Reason :: any()} when Model :: tuple() | map().
 from_map(Map, Model, ModelDescription0, Opts) when is_map(Map) ->
     {_, ModelDescription} = try_compile(Model, ModelDescription0, Opts),
-    emodel_utils:error_writer_foldl(
-        fun({Name, ReqFun, Getter, Setter, Default}, M) ->
-            case ReqFun(M) of
-                ignore ->
-                    {ok, M};
-                Required ->
-                    case maps:find(Name, Map) of
-                        {ok, null} when Required =:= required ->
-                            {error, {Name, required}};
-                        {ok, Value} ->
-                            case Setter(Value, M) of
-                                {ok, _Model} = Ok -> Ok;
-                                {error, Reason} -> {error, {Name, Reason}}
-                            end;
-                        error ->
-                            case Getter(M) of
-                                undefined ->
-                                    try_default(Required, Default, Name, M);
-                                _ -> {ok, M}
-                            end
-                    end
-            end
-        end, Model, ModelDescription);
+    Result = emodel_utils:error_writer_foldl(
+        fun ({Name, ReqFun, Getter, Setter, Default}, M) ->
+                case ReqFun(M) of
+                    ignore ->
+                        {ok, M};
+                    Required ->
+                        case maps:find(Name, Map) of
+                            {ok, null} when Required =:= required ->
+                                {error, [{Name, required}]};
+                            {ok, Value} ->
+                                case Setter(Value, M) of
+                                    {ok, _Model} = Ok -> Ok;
+                                    {error, Reason} -> {error, [{Name, Reason}]}
+                                end;
+                            error ->
+                                case Getter(M) of
+                                    undefined ->
+                                        try_default(Required, Default, Name, M);
+                                    _ -> {ok, M}
+                                end
+                        end
+                end;
+            ({'_', NextFun}, M) -> NextFun(Map, M)
+        end, Model, ModelDescription),
+    normalized_errors(Result);
 from_map(_, _, _, _) ->
     {error, <<"Object required">>}.
+
+normalized_errors({error, Errors}) ->
+    {error, lists:append(Errors)};
+normalized_errors(Rest) -> Rest.
 
 %% =============================================================================
 %%% Internal functions
 %% =============================================================================
 
 try_default(required, undefined, Name, _Model) ->
-    {error, {Name, required}};
+    {error, [{Name, required}]};
 try_default(_, undefined, _Name, Model) ->
     {ok, Model};
 try_default(Required, Default, Name, Model) ->
     case Default(Required, Model) of
         {ok, _Model} = Ok -> Ok;
-        {error, Reason} -> {error, {Name, Reason}}
+        {error, Reason} -> {error, [{Name, Reason}]}
     end.
 
 try_compile(_Model, {'$compiled', _}=Compiled, _Opts) ->

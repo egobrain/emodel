@@ -270,3 +270,30 @@ dependent_converter_test_() ->
           {error, [{<<"a">>, 1}]},
           emodel:from_map(#{<<"a">> => 1}, #{}, Model))
     ].
+
+next_test_() ->
+    T = fun(D) ->
+        emodel:from_map(
+            D, #{},
+            [
+             {a, required, {enum, [b,c]}, aa, []},
+             {'_', fun (D, #{aa := V}=S) -> emodel:from_map(D, S, [{V, required, integer, v, []}]);
+                       (_, S) -> {ok, S}
+                   end},
+             {d, required, integer, dd, []}
+            ])
+    end,
+    [
+     ?_assertEqual(
+          {ok, #{aa => b, v => 2, dd => 4}},
+          T(#{a => b, b => 2, c => 3, d => 4})),
+     ?_assertEqual(
+         {ok, #{aa => c, v => 3, dd => 4}},
+         T(#{a => c, b => 2, c => 3, d => 4})),
+     ?_assertEqual(
+         {error,[{a,<<"unknown">>},{d,<<"bad integer">>}]},
+         T(#{a => d, b => d, c => d, d => d})),
+     ?_assertEqual(
+         {error,[{b,<<"bad integer">>},{d,<<"bad integer">>}]},
+         T(#{a => b, b => d, c => d, d => d}))
+    ].
